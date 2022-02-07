@@ -88,6 +88,23 @@ To tag the image main line (without the `<image-release-number>` that ensures th
 ```
 make tag-main
 ```
+## Interact with Apache Airflow
+Remember, this is just a basic, vanilla Apache Airflow Docker image.  There are some basic commands that you can run in isolation.  To get the Apache Airflow version:
+```
+make airflow-version
+```
+To get the Apache-Airflow CLI help:
+```
+make run
+```
+To get the Python3 version:
+```
+make python3-version
+```
+To start the Python2 interpreter:
+```
+make python
+```
 ## FAQs
 **_Q. Why is the default make on macOS so old?_**
 Apple seems to have an issue with licensing around GNU products: more specifically to the terms of the GPLv3 license agreement. It is unlikely that Apple will provide current versions of utilities that are bound by the GPLv3 licensing constraints.
