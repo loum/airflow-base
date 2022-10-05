@@ -4,14 +4,12 @@
 MAKESTER__REPO_NAME = loum
 
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
-AIRFLOW_VERSION := 2.2.3
+AIRFLOW_VERSION ?= 2.4.0
 AIRFLOW_EXTRAS := "celery,redis,postgres"
-PYTHON_MAJOR_MINOR_VERSION := 3.8
-PYTHON_RELEASE_VERSION := 10
-UBUNTU_CODE := focal
-PYTHON_BASE_IMAGE := loum/python3-ubuntu:$(UBUNTU_CODE)-$(PYTHON_MAJOR_MINOR_VERSION).$(PYTHON_RELEASE_VERSION)
-PYTHON_VERSION := ${PYTHON_MAJOR_MINOR_VERSION}.${PYTHON_RELEASE_VERSION}
-AIRFLOW_PIP_VERSION := 22.0.3
+PYTHON_MAJOR_MINOR_VERSION := 3.10
+UBUNTU_CODE := jammy
+PYTHON_BASE_IMAGE := loum/python3-ubuntu:$(UBUNTU_CODE)-$(PYTHON_MAJOR_MINOR_VERSION)
+AIRFLOW_PIP_VERSION := 22.2.2
 MAKESTER__VERSION = $(UBUNTU_CODE)-$(AIRFLOW_VERSION)
 MAKESTER__RELEASE_NUMBER = 1
 
@@ -19,53 +17,22 @@ include makester/makefiles/makester.mk
 include makester/makefiles/docker.mk
 include makester/makefiles/python-venv.mk
 
-DEV_APT_DEPS := "apt-transport-https\
- apt-utils\
- build-essential\
- ca-certificates\
- gnupg\
- dirmngr\
- ldap-utils\
- libffi-dev\
- libkrb5-dev\
- libpq-dev\
- libsasl2-2\
- libsasl2-dev\
- libsasl2-modules\
- libssl-dev\
- locales\
- lsb-release\
- nodejs\
- openssh-client\
- postgresql-client\
- python3-cairo\
- python3-selinux\
- sasl2-bin\
- software-properties-common\
- unixodbc\
- unixodbc-dev\
- yarn"
+DEV_APT_COMMAND := ""
 
-RUNTIME_APT_DEPS := "apt-transport-https\
- ca-certificates\
- curl\
- dumb-init\
- gnupg\
- ldap-utils\
- libffi7\
- libsasl2-2\
- libsasl2-modules\
- libssl1.1\
- locales\
- lsb-release\
- netcat\
- openssh-client\
- postgresql-client\
- sasl2-bin\
- unixodbc"
+# Override to suit Ubuntu jammy
+RUNTIME_APT_DEPS="apt-transport-https apt-utils ca-certificates\
+ curl dumb-init freetds-bin gosu krb5-user\
+ ldap-utils libffi7 libldap-2.5-0 libsasl2-2 libsasl2-modules libssl3 locales\
+ lsb-release netcat openssh-client python3-selinux rsync sasl2-bin sqlite3 sudo unixodbc"
+
+# These seem to be missing from the base Ubuntu image.
+# - dumb-init is used in the Airflow image entrypoint
+# - nc (netcat) is used to connect to Redis
+# - libpq-dev for "pg_config executable not found" error when pip installing in Airflow 2.4.0
+ADDITIONAL_RUNTIME_APT_DEPS := "dumb-init netcat libpq-dev"
+ADDITIONAL_DEV_APT_DEPS := "libpq-dev"
 
 MAKESTER__CONTAINER_NAME := airflow
-MAKESTER__IMAGE_TARGET_TAG := $(AIRFLOW_VERSION)-$(PYTHON_MAJOR_MINOR_VERSION).${PYTHON_RELEASE_VERSION}
 MAKESTER__BUILD_COMMAND = $(DOCKER) build --rm\
  --no-cache\
  --build-arg AIRFLOW_VERSION=$(AIRFLOW_VERSION)\
@@ -75,9 +42,14 @@ MAKESTER__BUILD_COMMAND = $(DOCKER) build --rm\
  --build-arg AIRFLOW_CONSTRAINTS=constraints\
  --build-arg AIRFLOW_CONSTRAINTS_REFERENCE=constraints-$(AIRFLOW_VERSION)\
  --build-arg INSTALL_MYSQL_CLIENT="false"\
+ --build-arg INSTALL_POSTGRES_CLIENT="false"\
  --build-arg DEV_APT_DEPS=$(DEV_APT_DEPS)\
+ --build-arg DEV_APT_COMMAND=$(DEV_APT_COMMAND)\
  --build-arg RUNTIME_APT_DEPS=$(RUNTIME_APT_DEPS)\
+ --build-arg ADDITIONAL_RUNTIME_APT_DEPS=$(ADDITIONAL_RUNTIME_APT_DEPS)\
+ --build-arg ADDITIONAL_DEV_APT_DEPS=$(ADDITIONAL_DEV_APT_DEPS)\
  --build-arg AIRFLOW_PIP_VERSION=$(AIRFLOW_PIP_VERSION)\
+ --build-arg INSTALLATION_TYPE="RUNTIME"\
  -t $(MAKESTER__SERVICE_NAME):$(MAKESTER__IMAGE_TARGET_TAG) airflow
 
 CMD ?= --help
@@ -86,8 +58,6 @@ MAKESTER__RUN_COMMAND := $(DOCKER) run --rm -ti\
  --hostname $(MAKESTER__CONTAINER_NAME)\
  --name $(MAKESTER__CONTAINER_NAME)\
  $(MAKESTER__SERVICE_NAME):$(HASH) $(CMD)
-
-MAKESTER__IMAGE_TARGET_TAG = $(HASH)
 
 init: clear-env makester-requirements
 
