@@ -1,8 +1,15 @@
 .SILENT:
 .DEFAULT_GOAL := help
 
+MAKESTER__INCLUDES := py docker versioning
 MAKESTER__REPO_NAME = loum
 
+include makester/makefiles/makester.mk
+
+#
+# Makester overrides.
+#
+# Container image build
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
 AIRFLOW_VERSION ?= 2.4.1
 AIRFLOW_EXTRAS := "celery,redis,postgres"
@@ -13,13 +20,9 @@ AIRFLOW_PIP_VERSION := 22.2.2
 MAKESTER__VERSION = $(UBUNTU_CODE)-$(AIRFLOW_VERSION)
 MAKESTER__RELEASE_NUMBER = 1
 
-include makester/makefiles/makester.mk
-include makester/makefiles/docker.mk
-include makester/makefiles/python-venv.mk
-
 DEV_APT_COMMAND := ""
 
-# Override to suit Ubuntu jammy
+# Override to suit Ubuntu jammy.
 RUNTIME_APT_DEPS="apt-transport-https apt-utils ca-certificates\
  curl dumb-init freetds-bin gosu krb5-user\
  ldap-utils libffi7 libldap-2.5-0 libsasl2-2 libsasl2-modules libssl3 locales\
@@ -32,9 +35,9 @@ RUNTIME_APT_DEPS="apt-transport-https apt-utils ca-certificates\
 ADDITIONAL_RUNTIME_APT_DEPS := "dumb-init netcat libpq-dev"
 ADDITIONAL_DEV_APT_DEPS := "libpq-dev"
 
-MAKESTER__CONTAINER_NAME := airflow
-MAKESTER__BUILD_COMMAND = $(DOCKER) build --rm\
- --no-cache\
+MAKESTER__IMAGE_TARGET_TAG := $(AIRFLOW_VERSION)
+
+MAKESTER__BUILD_COMMAND = --rm --no-cache\
  --build-arg AIRFLOW_VERSION=$(AIRFLOW_VERSION)\
  --build-arg AIRFLOW_EXTRAS=$(AIRFLOW_EXTRAS)\
  --build-arg PYTHON_MAJOR_MINOR_VERSION=$(PYTHON_MAJOR_MINOR_VERSION)\
@@ -50,35 +53,41 @@ MAKESTER__BUILD_COMMAND = $(DOCKER) build --rm\
  --build-arg ADDITIONAL_DEV_APT_DEPS=$(ADDITIONAL_DEV_APT_DEPS)\
  --build-arg AIRFLOW_PIP_VERSION=$(AIRFLOW_PIP_VERSION)\
  --build-arg INSTALLATION_TYPE="RUNTIME"\
- -t $(MAKESTER__SERVICE_NAME):$(MAKESTER__IMAGE_TARGET_TAG) airflow
+ --tag $(MAKESTER__IMAGE_TAG_ALIAS) -f airflow/Dockerfile.airflow-base airflow
+
+_customise-dockerfile:
+	cat airflow/Dockerfile | sed -E "s/^RUN bash \/scripts\/docker\/install_os_dependencies.sh /USER root\nRUN bash \/scripts\/docker\/install_os_dependencies.sh /" > airflow/Dockerfile.airflow-base
 
 CMD ?= --help
 MAKESTER__CONTAINER_NAME := airflow-base
-MAKESTER__RUN_COMMAND := $(DOCKER) run --rm -ti\
+MAKESTER__RUN_COMMAND := $(MAKESTER__DOCKER) run --rm -ti\
  --hostname $(MAKESTER__CONTAINER_NAME)\
  --name $(MAKESTER__CONTAINER_NAME)\
- $(MAKESTER__SERVICE_NAME):$(HASH) $(CMD)
+ $(MAKESTER__IMAGE_TAG_ALIAS) $(CMD)
 
-init: clear-env makester-requirements
-
-set-airflow:
+_set-airflow:
 	cd airflow; $(GIT) checkout $(AIRFLOW_VERSION)
-build-image: set-airflow
+
+_unset-airflow:
+	cd airflow; $(GIT) checkout main
+
+project-image-build: _set-airflow _customise-dockerfile image-build _unset-airflow
 
 airflow-version:
-	$(MAKE) run CMD=version
+	$(MAKE) container-run CMD=version
 
 python:
-	$(MAKE) run CMD='bash -c "python3"'
+	$(MAKE) container-run CMD='bash -c "python3"'
 
 python-version:
-	$(MAKE) run CMD='bash -c "python3 --version"'
+	$(MAKE) container-run CMD='bash -c "python3 --version"'
 
-help: makester-help docker-help python-venv-help
+help: makester-help
 	@echo "(Makefile)\n\
-  login                Login to running container $(MAKESTER__CONTAINER_NAME) as user \"airflow\"\n\
   airflow-version      Airflow version\n\
-  python3-version      Python3 version\n\
-  python               Start the Python3 interpreter\n"
+  login                Login to running container $(MAKESTER__CONTAINER_NAME) as user \"airflow\"\n\
+  project-image-build  Customised image builder\n\
+  python               Start the Python3 interpreter\n\
+  python3-version      Python3 version\n"
 
 .PHONY: help
