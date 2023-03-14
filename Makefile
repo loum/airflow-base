@@ -11,12 +11,12 @@ include makester/makefiles/makester.mk
 #
 # Container image build
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
-AIRFLOW_VERSION ?= 2.4.1
+AIRFLOW_VERSION ?= 2.4.3
 AIRFLOW_EXTRAS := "celery,redis,postgres"
 PYTHON_MAJOR_MINOR_VERSION := 3.10
 UBUNTU_CODE := jammy
 PYTHON_BASE_IMAGE := loum/python3-ubuntu:$(UBUNTU_CODE)-$(PYTHON_MAJOR_MINOR_VERSION)
-AIRFLOW_PIP_VERSION := 22.2.2
+AIRFLOW_PIP_VERSION := 23.0.1
 MAKESTER__VERSION = $(UBUNTU_CODE)-$(AIRFLOW_VERSION)
 MAKESTER__RELEASE_NUMBER = 1
 
@@ -55,12 +55,6 @@ MAKESTER__BUILD_COMMAND = --rm --no-cache\
  --build-arg INSTALLATION_TYPE="RUNTIME"\
  --tag $(MAKESTER__IMAGE_TAG_ALIAS) -f airflow/Dockerfile.airflow-base airflow
 
-_customise-dockerfile:
-	cat airflow/Dockerfile | sed -E "s/^RUN bash \/scripts\/docker\/install_os_dependencies.sh /USER root\nRUN bash \/scripts\/docker\/install_os_dependencies.sh /" > airflow/Dockerfile.airflow-base
-
-_customise-dockerfile-rm:
-	-@$(shell which rm) airflow/Dockerfile.airflow-base
-
 CMD ?= --help
 MAKESTER__CONTAINER_NAME := airflow-base
 MAKESTER__RUN_COMMAND := $(MAKESTER__DOCKER) run --rm -ti\
@@ -80,7 +74,13 @@ _set-airflow:
 _unset-airflow:
 	cd airflow; $(GIT) checkout main
 
-project-image-build: _set-airflow _customise-dockerfile image-build _unset-airflow
+_customise-dockerfile:
+	cat airflow/Dockerfile | sed -E "s/^RUN bash \/scripts\/docker\/install_os_dependencies.sh /USER root\nRUN bash \/scripts\/docker\/install_os_dependencies.sh /" > airflow/Dockerfile.airflow-base
+
+_customise-dockerfile-rm:
+	-@$(shell which rm) airflow/Dockerfile.airflow-base
+
+project-image-build: _set-airflow _customise-dockerfile image-buildx _unset-airflow _customise-dockerfile-rm
 
 image-bulk-build:
 	$(info ### Container image bulk build ...)
