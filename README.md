@@ -56,10 +56,12 @@ Get the code and change into the top level `git` project directory:
 ```
 git clone https://github.com/loum/airflow-base.git && cd airflow-base
 ```
+
 For first-time setup, get the [Makester project](https://github.com/loum/makester.git):
 ```
 git submodule update --init
 ```
+
 Initialise the environment:
 ```
 make init

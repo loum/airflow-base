@@ -1,7 +1,7 @@
 .SILENT:
 .DEFAULT_GOAL := help
 
-MAKESTER__INCLUDES := py docker versioning
+MAKESTER__INCLUDES := py docker
 MAKESTER__REPO_NAME = loum
 
 include makester/makefiles/makester.mk
@@ -35,7 +35,7 @@ RUNTIME_APT_DEPS="apt-transport-https apt-utils ca-certificates\
 ADDITIONAL_RUNTIME_APT_DEPS := "dumb-init netcat libpq-dev"
 ADDITIONAL_DEV_APT_DEPS := "libpq-dev"
 
-MAKESTER__IMAGE_TARGET_TAG := $(AIRFLOW_VERSION)
+MAKESTER__IMAGE_TARGET_TAG := jammy-$(AIRFLOW_VERSION)
 
 MAKESTER__BUILD_COMMAND = --rm --no-cache\
  --build-arg AIRFLOW_VERSION=$(AIRFLOW_VERSION)\
@@ -58,12 +58,21 @@ MAKESTER__BUILD_COMMAND = --rm --no-cache\
 _customise-dockerfile:
 	cat airflow/Dockerfile | sed -E "s/^RUN bash \/scripts\/docker\/install_os_dependencies.sh /USER root\nRUN bash \/scripts\/docker\/install_os_dependencies.sh /" > airflow/Dockerfile.airflow-base
 
+_customise-dockerfile-rm:
+	-@$(shell which rm) airflow/Dockerfile.airflow-base
+
 CMD ?= --help
 MAKESTER__CONTAINER_NAME := airflow-base
 MAKESTER__RUN_COMMAND := $(MAKESTER__DOCKER) run --rm -ti\
  --hostname $(MAKESTER__CONTAINER_NAME)\
  --name $(MAKESTER__CONTAINER_NAME)\
  $(MAKESTER__IMAGE_TAG_ALIAS) $(CMD)
+
+#
+# Local Makefile targets.
+#
+# Initialise the development environment.
+init: py-venv-clear py-venv-init py-install-makester
 
 _set-airflow:
 	cd airflow; $(GIT) checkout $(AIRFLOW_VERSION)
@@ -73,19 +82,45 @@ _unset-airflow:
 
 project-image-build: _set-airflow _customise-dockerfile image-build _unset-airflow
 
+image-bulk-build:
+	$(info ### Container image bulk build ...)
+	scripts/bulkbuild.sh
+
+image-pull-into-docker:
+	$(info ### Pulling local registry image $(MAKESTER__IMAGE_TAG_ALIAS) into docker)
+	$(MAKESTER__DOCKER) pull $(MAKESTER__IMAGE_TAG_ALIAS)
+
+image-tag-in-docker: image-pull-into-docker
+	$(info ### Tagging local registry image $(MAKESTER__IMAGE_TAG_ALIAS) => $(MAKESTER__STATIC_SERVICE_NAME):$(MAKESTER__RELEASE_VERSION))
+	$(MAKESTER__DOCKER) tag $(MAKESTER__IMAGE_TAG_ALIAS) $(MAKESTER__STATIC_SERVICE_NAME):$(MAKESTER__RELEASE_VERSION)
+
+image-transfer: image-tag-in-docker
+	$(info ### Deleting pulled image $(MAKESTER__IMAGE_TAG_ALIAS))
+	$(MAKESTER__DOCKER) rmi $(MAKESTER__IMAGE_TAG_ALIAS)
+
+multi-arch-build: image-registry-start image-buildx-builder
+	$(info ### Starting multi-arch builds ...)
+	$(MAKE) _set-airflow _customise-dockerfile
+	$(MAKE) MAKESTER__DOCKER_PLATFORM=linux/arm64,linux/amd64 image-buildx
+	$(MAKE) _unset-airflow _customise-dockerfile-rm
+	$(MAKE) image-transfer
+	$(MAKE) image-registry-stop
+
 airflow-version:
 	$(MAKE) container-run CMD=version
 
 python:
 	$(MAKE) container-run CMD='bash -c "python3"'
 
-python-version:
+python3-version:
 	$(MAKE) container-run CMD='bash -c "python3 --version"'
 
 help: makester-help
 	@echo "(Makefile)\n\
   airflow-version      Airflow version\n\
-  login                Login to running container $(MAKESTER__CONTAINER_NAME) as user \"airflow\"\n\
+  init                 Build the local development environment\n\
+  image-bulk-build     Build all multi-platform container images\n\
+  multi-arch-build     Convenience target for multi-arch container image builds\n\
   project-image-build  Customised image builder\n\
   python               Start the Python3 interpreter\n\
   python3-version      Python3 version\n"
