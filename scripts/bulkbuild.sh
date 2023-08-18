@@ -1,6 +1,6 @@
 #!/bin/sh
 
-for AIRFLOW_VERSION in 2.3.3 2.3.4 2.4.0 2.4.1 2.4.2 2.4.3 2.5.0 2.5.1 2.5.2 2.5.3 2.6.0 2.6.1 2.6.2
+for AIRFLOW_VERSION in 2.3.3 2.3.4 2.4.0 2.4.1 2.4.2 2.4.3 2.5.0 2.5.1 2.5.2 2.5.3 2.6.0 2.6.1 2.6.2 2.6.3
 do
     MAKESTER__DOCKER_PLATFORM=linux/arm64,linux/amd64\
  MAKESTER__DOCKER_DRIVER_OUTPUT=push\
