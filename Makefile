@@ -11,7 +11,7 @@ include makester/makefiles/makester.mk
 #
 # Container image build
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
-AIRFLOW_VERSION ?= 2.8.2
+AIRFLOW_VERSION ?= 2.8.4
 AIRFLOW_EXTRAS := "celery,redis,postgres"
 PYTHON_MAJOR_MINOR_VERSION := 3.11
 UBUNTU_CODE := jammy
