@@ -11,9 +11,9 @@ include makester/makefiles/makester.mk
 #
 # Container image build
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
-AIRFLOW_VERSION ?= 2.8.4
+AIRFLOW_VERSION ?= 2.9.0
 AIRFLOW_EXTRAS := "celery,redis,postgres"
-PYTHON_MAJOR_MINOR_VERSION := 3.11
+PYTHON_MAJOR_MINOR_VERSION := 3.12
 UBUNTU_CODE := jammy
 PYTHON_BASE_IMAGE := loum/python3-ubuntu:$(UBUNTU_CODE)-$(PYTHON_MAJOR_MINOR_VERSION)
 AIRFLOW_PIP_VERSION := 24.0
@@ -76,7 +76,8 @@ _unset-airflow:
 
 _customise-dockerfile:
 	cat airflow/Dockerfile | sed -E "s/^RUN bash \/scripts\/docker\/install_os_dependencies.sh /USER root\nRUN bash \/scripts\/docker\/install_os_dependencies.sh /" > airflow/Dockerfile.airflow-base.tmp
-	cat airflow/Dockerfile.airflow-base.tmp | sed -E "s/linux\/debian/linux\/ubuntu/" > airflow/Dockerfile.airflow-base
+	cat airflow/Dockerfile.airflow-base.tmp | sed -E "s/linux\/debian/linux\/ubuntu/" > airflow/Dockerfile.airflow-base.tmp1
+	cat airflow/Dockerfile.airflow-base.tmp1 | sed -E "s/microsoft.com\/debian/microsoft.com\/ubuntu/" > airflow/Dockerfile.airflow-base
 
 _customise-dockerfile-rm:
 	-@$(shell which rm) airflow/Dockerfile.airflow-base*
