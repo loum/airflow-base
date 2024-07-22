@@ -11,12 +11,12 @@ include makester/makefiles/makester.mk
 #
 # Container image build
 # Tagging convention used: <UBUNTU_CODE>-<AIRFLOW-VERSION>-<MAKESTER__RELEASE_NUMBER>
-AIRFLOW_VERSION ?= 2.9.1
+AIRFLOW_VERSION ?= 2.9.2
 AIRFLOW_EXTRAS := "celery,redis,postgres"
 PYTHON_MAJOR_MINOR_VERSION := 3.12
 UBUNTU_CODE := jammy
 PYTHON_BASE_IMAGE := loum/python3-ubuntu:$(UBUNTU_CODE)-$(PYTHON_MAJOR_MINOR_VERSION)
-AIRFLOW_PIP_VERSION := 24.0
+AIRFLOW_PIP_VERSION := 24.1.2
 MAKESTER__VERSION = $(UBUNTU_CODE)-$(AIRFLOW_VERSION)
 MAKESTER__RELEASE_NUMBER = 1
 
@@ -46,6 +46,7 @@ MAKESTER__BUILD_COMMAND = --rm --no-cache\
  --build-arg AIRFLOW_CONSTRAINTS_REFERENCE=constraints-$(AIRFLOW_VERSION)\
  --build-arg INSTALL_MYSQL_CLIENT="false"\
  --build-arg INSTALL_POSTGRES_CLIENT="false"\
+ --build-arg INSTALL_MSSQL_CLIENT="false"\
  --build-arg DEV_APT_DEPS=$(DEV_APT_DEPS)\
  --build-arg DEV_APT_COMMAND=$(DEV_APT_COMMAND)\
  --build-arg RUNTIME_APT_DEPS=$(RUNTIME_APT_DEPS)\
